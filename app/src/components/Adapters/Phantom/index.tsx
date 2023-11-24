@@ -1,0 +1,80 @@
+import {
+  type QwikIntrinsicElements,
+  component$,
+  useVisibleTask$,
+  useSignal,
+  type Signal,
+} from "@builder.io/qwik";
+
+function PhantomIcon(props: QwikIntrinsicElements["svg"], key: string) {
+  return (
+    <svg
+      width="593"
+      height="493"
+      viewBox="0 0 593 493"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+      key={key}
+    >
+      <path
+        d="M70.0546 493C145.604 493 202.38 427.297 236.263 375.378C232.142 386.865 229.852 398.351 229.852 409.378C229.852 439.703 247.252 461.297 281.592 461.297C328.753 461.297 379.119 419.946 405.218 375.378C403.386 381.811 402.471 387.784 402.471 393.297C402.471 414.432 414.375 427.757 438.643 427.757C515.108 427.757 592.03 292.216 592.03 173.676C592.03 81.3243 545.327 0 428.112 0C222.069 0 0 251.784 0 414.432C0 478.297 34.3405 493 70.0546 493ZM357.141 163.568C357.141 140.595 369.962 124.514 388.734 124.514C407.049 124.514 419.87 140.595 419.87 163.568C419.87 186.541 407.049 203.081 388.734 203.081C369.962 203.081 357.141 186.541 357.141 163.568ZM455.126 163.568C455.126 140.595 467.947 124.514 486.719 124.514C505.034 124.514 517.855 140.595 517.855 163.568C517.855 186.541 505.034 203.081 486.719 203.081C467.947 203.081 455.126 186.541 455.126 163.568Z"
+        fill="black"
+      />
+    </svg>
+  );
+}
+
+export default component$(
+  ({
+    walletAddress,
+    parentWalletAction,
+  }: {
+    walletAddress: Signal<string | undefined>;
+    parentWalletAction: Signal<boolean>;
+  }) => {
+    const isPhantom = useSignal(false);
+    const walletAction = useSignal(false);
+
+    useVisibleTask$(async ({ track, cleanup }) => {
+      track(() => walletAction.value);
+      if (window.phantom?.solana?.isPhantom) isPhantom.value = true;
+      if (walletAction.value) {
+        walletAddress.value =
+          (await window.phantom?.solana?.connect())!.publicKey.toString();
+        walletAction.value = false;
+        parentWalletAction.value = false;
+      }
+      cleanup(() => {});
+    });
+
+    useVisibleTask$(async ({ track, cleanup }) => {
+      const solProvider = window.phantom?.solana;
+      track(() => solProvider);
+      solProvider.on("disconnect", () => {
+        walletAddress.value = undefined;
+      });
+
+      solProvider.on("accountChanged", (publicKey: any) => {
+        if (publicKey) {
+          walletAddress.value = publicKey.toString();
+        }
+      });
+      cleanup(() => {});
+    });
+
+    return (
+      <div
+        class="flex w-full cursor-pointer items-center justify-between p-3"
+        onClick$={() => {
+          walletAction.value = true;
+        }}
+      >
+        <PhantomIcon class="h-[30px] w-[30px]" />
+        <p class="bg-black p-2 font-Grotesk text-xs font-medium text-white">
+          {isPhantom.value ? "Detected" : "Not Detected"}
+        </p>
+      </div>
+    );
+  },
+);
